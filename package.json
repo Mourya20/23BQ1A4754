@@ -6,7 +6,7 @@
   },
   "type": "module",
   "scripts": {
-    "dev": "nodemon app.js",
-    "start": "node app.js"
+    "dev": "nodemon vehicle_maintence_scheduler/app.js",
+    "start": "node vehicle_maintence_scheduler/app.js"
   }
 }

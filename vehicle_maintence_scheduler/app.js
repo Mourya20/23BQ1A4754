@@ -1,7 +1,12 @@
 import express from "express";
+import { logger } from "../logging_middleware/logger.js";
+import { requestLoggingMiddleware, errorLoggingMiddleware } from "../logging_middleware/loggingMiddleware.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+app.use(express.json());
+app.use(requestLoggingMiddleware);
 
 const DEPOT_API_URL = "http://4.224.186.213/evaluation-service/depots";
 const VEHICLES_API_URL = "http://4.224.186.213/evaluation-service/vehicles";
@@ -86,6 +91,11 @@ app.get("/depots", async (req, res) => {
     const data = await fetchJson(DEPOT_API_URL, req);
     res.json(data);
   } catch (error) {
+    logger.error("failed to proxy depots", {
+      message: error.message,
+      route: "/depots",
+      url: DEPOT_API_URL,
+    });
     res.status(502).json({ error: error.message });
   }
 });
@@ -95,6 +105,11 @@ app.get("/vehicles", async (req, res) => {
     const data = await fetchJson(VEHICLES_API_URL, req);
     res.json(data);
   } catch (error) {
+    logger.error("failed to proxy vehicles", {
+      message: error.message,
+      route: "/vehicles",
+      url: VEHICLES_API_URL,
+    });
     res.status(502).json({ error: error.message });
   }
 });
@@ -115,6 +130,10 @@ app.get("/schedule", async (req, res) => {
 
     res.json({ schedules });
   } catch (error) {
+    logger.error("failed to compute schedule list", {
+      message: error.message,
+      route: "/schedule",
+    });
     res.status(502).json({ error: error.message });
   }
 });
@@ -129,6 +148,7 @@ app.get("/schedule/:depotId", async (req, res) => {
     const depot = depots.find((item) => Number(item.ID) === depotId);
 
     if (!depot) {
+      logger.warn("depot not found", { depotId: req.params.depotId });
       return res.status(404).json({ error: `Depot ${req.params.depotId} not found` });
     }
 
@@ -138,16 +158,28 @@ app.get("/schedule/:depotId", async (req, res) => {
 
     const schedule = getBestSchedule(vehicles, budget);
 
+    logger.info("depot schedule computed", {
+      depotId: depot.ID,
+      mechanicHours: budget,
+      vehicleCount: vehicles.length,
+    });
+
     res.json({
       depotId: depot.ID,
       mechanicHours: budget,
       schedule,
     });
   } catch (error) {
+    logger.error("failed to compute depot schedule", {
+      message: error.message,
+      route: "/schedule/:depotId",
+    });
     res.status(502).json({ error: error.message });
   }
 });
 
+app.use(errorLoggingMiddleware);
+
 app.listen(PORT, () => {
-  console.log(`Vehicle Maintenance Scheduler listening on port ${PORT}`);
+  logger.info("Vehicle Maintenance Scheduler started", { port: PORT });
 });
